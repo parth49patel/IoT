@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>MQTTBrokerHost</key>
+	<string>$(MQTT_BROKER_HOST)</string>
+	<key>MQTTBrokerPort</key>
+	<string>$(MQTT_BROKER_PORT)</string>
+	<key>MQTTPass</key>
+	<string>$(MQTT_PASS)</string>
+	<key>MQTTUser</key>
+	<string>$(MQTT_USER)</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
+</dict>
+</plist>

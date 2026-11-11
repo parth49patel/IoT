@@ -1,0 +1,63 @@
+# ==============================================================================
+# Xcode & Apple Developer Clutter
+# ==============================================================================
+## User-specific settings & workspaces
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+*.xcuserstate
+
+## Xcode project state & local user schemes
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+
+## Workspaces
+*.xcworkspace/*
+!*.xcworkspace/contents.xcworkspacedata
+!*.xcworkspace/xcshareddata/
+*.xcworkspace/xcuserdata/
+
+## Build products, derivatives, & caches
+build/
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# ==============================================================================
+# Dependency Managers (SPM & CocoaPods)
+# ==============================================================================
+## Swift Package Manager (SPM) local cache
+.build/
+.swiftpm/
+Packages/
+
+## CocoaPods (uncomment if using Pods instead of SPM)
+# Pods/
+
+# ==============================================================================
+# Project Secrets & Environment Configuration
+# ==============================================================================
+## Local configuration files containing credentials
+Secrets.xcconfig
+*.xcconfig.local
+*.env
+*.env.*
+!.env.example
+!Secrets.xcconfig.example
+
+# ==============================================================================
+# macOS System Files
+# ==============================================================================
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
