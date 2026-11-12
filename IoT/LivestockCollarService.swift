@@ -7,7 +7,6 @@
 
 import Foundation
 import CoreLocation
-import CoreMotion
 import UIKit
 import AudioToolbox
 import CocoaMQTT
@@ -31,7 +30,7 @@ class LivestockCollarService: NSObject, CLLocationManagerDelegate {
 	var currentLocation: CLLocation?
 	var activeFenceCoordinates: [FenceCoordinate] = []
 	
-	// Connection Settings
+		// Connection Settings
 	let collarID = "cow_ios_01"
 	private let brokerHost = AppConfig.brokerHost
 	private let brokerPort: UInt16 = AppConfig.brokerPort
@@ -39,26 +38,24 @@ class LivestockCollarService: NSObject, CLLocationManagerDelegate {
 	private let mqttPass = AppConfig.mqttPass
 	
 	private let locationManager = CLLocationManager()
-	private let motionManager = CMMotionManager()
 	private var mqttClient: CocoaMQTT?
 	private var transmissionTimer: Timer?
 	
-	private var accelX = 0.0
-	private var accelY = 0.0
-	private var accelZ = 9.81
+		// Fallback speed calculation tracking
+	private var previousLocation: CLLocation?
 	
 	override init() {
 		super.init()
 		UIDevice.current.isBatteryMonitoringEnabled = true
 		setupLocation()
-		setupMotion()
 		setupMQTT()
 	}
 	
 	private func setupLocation() {
 		locationManager.delegate = self
-		locationManager.desiredAccuracy = kCLLocationAccuracyBest
+		locationManager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
 		locationManager.distanceFilter = kCLDistanceFilterNone
+		locationManager.activityType = .fitness
 		locationManager.allowsBackgroundLocationUpdates = true
 		locationManager.pausesLocationUpdatesAutomatically = false
 		locationManager.requestWhenInUseAuthorization()
@@ -69,18 +66,6 @@ class LivestockCollarService: NSObject, CLLocationManagerDelegate {
 			manager.requestAlwaysAuthorization()
 		}
 		manager.startUpdatingLocation()
-	}
-	
-	private func setupMotion() {
-		if motionManager.isAccelerometerAvailable {
-			motionManager.accelerometerUpdateInterval = 0.2
-			motionManager.startAccelerometerUpdates(to: .main) { [weak self] data, _ in
-				guard let data = data else { return }
-				self?.accelX = round(data.acceleration.x * 9.81 * 100) / 100
-				self?.accelY = round(data.acceleration.y * 9.81 * 100) / 100
-				self?.accelZ = round(data.acceleration.z * 9.81 * 100) / 100
-			}
-		}
 	}
 	
 	private func setupMQTT() {
@@ -106,13 +91,34 @@ class LivestockCollarService: NSObject, CLLocationManagerDelegate {
 		isRunning = false
 		transmissionTimer?.invalidate()
 		transmissionTimer = nil
+		previousLocation = nil
 	}
 	
 	func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-		guard let loc = locations.last else { return }
+		guard let loc = locations.last, loc.horizontalAccuracy >= 0 else { return }
+		
+		var calculatedSpeed: Double = 0.0
+		
+			// 1. Use native hardware speed if available (returns >= 0 when valid)
+		if loc.speed >= 0 {
+			calculatedSpeed = loc.speed
+		} else if let prev = previousLocation {
+				// 2. Fallback: calculate delta distance / delta time
+			let timeDelta = loc.timestamp.timeIntervalSince(prev.timestamp)
+			if timeDelta > 0.1 && timeDelta < 10.0 {
+				let distanceDelta = loc.distance(from: prev)
+					// Filter out micro-jitter while stationary
+				if distanceDelta > 0.5 {
+					calculatedSpeed = distanceDelta / timeDelta
+				}
+			}
+		}
+		
+		self.previousLocation = loc
 		self.currentLocation = loc
+		
 		DispatchQueue.main.async {
-			self.lastSpeed = max(0.0, loc.speed)
+			self.lastSpeed = round(calculatedSpeed * 100.0) / 100.0
 		}
 	}
 	
@@ -121,6 +127,7 @@ class LivestockCollarService: NSObject, CLLocationManagerDelegate {
 		
 		let now = Date()
 		let formatter = ISO8601DateFormatter()
+		formatter.timeZone = .current
 		formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
 		let timestampString = formatter.string(from: now)
 		
@@ -132,10 +139,7 @@ class LivestockCollarService: NSObject, CLLocationManagerDelegate {
 			"timestamp_str": timestampString,
 			"latitude": loc.coordinate.latitude,
 			"longitude": loc.coordinate.longitude,
-			"speed": max(0.0, round(loc.speed * 100.0) / 100.0),
-			"accel_x": accelX,
-			"accel_y": accelY,
-			"accel_z": accelZ,
+			"speed": self.lastSpeed,
 			"battery_level": round(batteryPct * 10.0) / 10.0
 		]
 		
@@ -182,6 +186,7 @@ class LivestockCollarService: NSObject, CLLocationManagerDelegate {
 	}
 }
 
+	// MARK: - CocoaMQTTDelegate
 extension LivestockCollarService: CocoaMQTTDelegate {
 	func mqtt(_ mqtt: CocoaMQTT, didConnectAck ack: CocoaMQTTConnAck) {
 		if ack == .accept {
@@ -212,6 +217,7 @@ extension LivestockCollarService: CocoaMQTTDelegate {
 	func mqttDidDisconnect(_ mqtt: CocoaMQTT, withError err: Error?) {
 		DispatchQueue.main.async { self.isConnected = false }
 	}
+	
 	func mqtt(_ mqtt: CocoaMQTT, didPublishMessage message: CocoaMQTTMessage, id: UInt16) {}
 	func mqtt(_ mqtt: CocoaMQTT, didPublishAck id: UInt16) {}
 	func mqtt(_ mqtt: CocoaMQTT, didSubscribeTopics success: NSDictionary, failed: [String]) {}
